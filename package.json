@@ -1,0 +1,16 @@
+{
+  "name": "com.batuhankanbur.assetmanager",
+  "version": "1.0.0",
+  "displayName": "Asset Manager",
+  "description": "Asset loading and management with optional UniTask support.",
+  "unity": "2020.3",
+  "author": {
+    "name": "Batuhan Kanbur",
+    "url": "https://github.com/batuhankanbur"
+  },
+  "keywords": ["asset", "manager", "async", "addressables"],
+  "license": "MIT",
+  "dependencies": {
+    "com.unity.addressables": "1.21.17"
+  }
+}

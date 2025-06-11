@@ -1,0 +1,25 @@
+{
+    "name": "AssetManager",
+    "rootNamespace": "",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.cysharp.unitask",
+            "expression": "",
+            "define": ""
+        },
+        {
+            "name": "com.unity.addressables",
+            "expression": "",
+            "define": ""
+        }
+    ],
+    "noEngineReferences": false
+}
