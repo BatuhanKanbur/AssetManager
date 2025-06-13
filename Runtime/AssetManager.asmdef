@@ -1,12 +1,7 @@
 {
     "name": "AssetManager",
     "rootNamespace": "",
-    "references": [
-        "UniTask",
-        "Unity.Addressables",
-        "UniTask.Addressables",
-        "Unity.ResourceManager"
-    ],
+    "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -18,12 +13,12 @@
         {
             "name": "com.unity.addressables",
             "expression": "2.0.0",
-            "define": "UNITASK_INSTALLED"
+            "define": "ASSETMANAGER_INITIALIZED"
         },
         {
             "name": "com.cysharp.unitask",
             "expression": "2.0.0",
-            "define": "ADDRESSABLES_INSTALLED"
+            "define": "ASSETMANAGER_INITIALIZED"
         }
     ],
     "noEngineReferences": false

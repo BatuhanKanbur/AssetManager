@@ -3,37 +3,112 @@ using System;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.PackageManager;
+using UnityEditor.PackageManager.Requests;
 using UnityEngine;
 
 namespace AssetManager.Editor
 {
+    [InitializeOnLoad]
     public static class DependencyChecker
     {
-        private const string UniTaskUpmPath = "Packages/com.cysharp.unitask/package.json";
+        private const string UniTaskGitUrl = "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask";
+        private const string UniTaskPath = "Packages/com.cysharp.unitask";
+        private const string AddressablesPath = "Packages/com.unity.addressables";
         private const string AssetManagerAsmdefPath = "Packages/com.batuhankanbur.assetmanager/Runtime/AssetManager.asmdef";
-        private const string DefineSymbol = "UNITASK_INSTALLED";
-        private static readonly Dependency[] Dependencies = new Dependency[]
+
+        private const string DefineSymbol = "ASSETMANAGER_INITIALIZED";
+        private const string EditorPrefKey = "AssetManager.DependencyCheckCompleted";
+
+        private static AddRequest _currentRequest;
+
+        static DependencyChecker()
         {
-            new Dependency("UniTask", "Packages/com.cysharp.unitask"),
-            new Dependency("Unity.Addressables", "Packages/com.unity.addressables"),
-            new Dependency("UniTask.Addressables", "Packages/com.cysharp.unitask"),
-            new Dependency("Unity.ResourceManager", "Packages/com.unity.addressables")
-        };
-        private static bool _isDependenciesChecked;
-        private static bool _isDefineAdded;
-        private static bool _isAsmdefChecked;
-        [InitializeOnLoadMethod]
-        private static void OnEditorLoad()
-        {
-            EditorApplication.delayCall += CheckDependency;
-            EditorApplication.delayCall += CheckAndAddDefine;
-            EditorApplication.delayCall += CheckAsmdef;
+            if (EditorPrefs.GetBool(EditorPrefKey, false)) return;
+            EditorApplication.update += Run;
         }
-        private static void CheckAndAddDefine()
+
+        private static void Run()
         {
-            if (_isDefineAdded) return;
-            if (!File.Exists(UniTaskUpmPath)) return;
-            BuildTargetGroup[] targetGroups = {
+            EditorApplication.update -= Run;
+            CheckAndInstallDependencies();
+        }
+
+        private static void CheckAndInstallDependencies()
+        {
+            if (!Directory.Exists(UniTaskPath))
+            {
+                Debug.Log("[DependencyChecker] UniTask not found. Installing...");
+                _currentRequest = Client.Add(UniTaskGitUrl);
+                EditorApplication.update += WaitForUniTask;
+                return;
+            }
+
+            if (!Directory.Exists(AddressablesPath))
+            {
+                Debug.Log("[DependencyChecker] Addressables not found. Installing...");
+                _currentRequest = Client.Add("com.unity.addressables");
+                EditorApplication.update += WaitForAddressables;
+                return;
+            }
+
+            AfterInstall();
+        }
+
+        private static void WaitForUniTask()
+        {
+            if (!_currentRequest.IsCompleted) return;
+
+            EditorApplication.update -= WaitForUniTask;
+
+            if (_currentRequest.Status == StatusCode.Success)
+            {
+                Debug.Log("[DependencyChecker] UniTask installed.");
+                if (!Directory.Exists(AddressablesPath))
+                {
+                    _currentRequest = Client.Add("com.unity.addressables");
+                    EditorApplication.update += WaitForAddressables;
+                }
+                else
+                {
+                    AfterInstall();
+                }
+            }
+            else
+            {
+                Debug.LogError($"[DependencyChecker] Failed to install UniTask: {_currentRequest.Error.message}");
+            }
+        }
+
+        private static void WaitForAddressables()
+        {
+            if (!_currentRequest.IsCompleted) return;
+
+            EditorApplication.update -= WaitForAddressables;
+
+            if (_currentRequest.Status == StatusCode.Success)
+            {
+                Debug.Log("[DependencyChecker] Addressables installed.");
+                AfterInstall();
+            }
+            else
+            {
+                Debug.LogError($"[DependencyChecker] Failed to install Addressables: {_currentRequest.Error.message}");
+            }
+        }
+
+        private static void AfterInstall()
+        {
+            AddDefine();
+            UpdateAsmdef();
+            EditorPrefs.SetBool(EditorPrefKey, true);
+            Debug.Log("[DependencyChecker] Setup completed.");
+        }
+
+        private static void AddDefine()
+        {
+            BuildTargetGroup[] groups =
+            {
                 BuildTargetGroup.Standalone,
                 BuildTargetGroup.Android,
                 BuildTargetGroup.iOS,
@@ -41,93 +116,65 @@ namespace AssetManager.Editor
                 BuildTargetGroup.WSA,
                 BuildTargetGroup.PS4,
                 BuildTargetGroup.PS5,
-                BuildTargetGroup.XboxOne,
+                BuildTargetGroup.XboxOne
             };
-            foreach (var group in targetGroups)
-            {
-                var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(group);
-                var defineList = defines.Split(';').ToList();
 
-                if (defineList.Contains(DefineSymbol)) continue;
-                defineList.Add(DefineSymbol);
-                var newDefines = string.Join(";", defineList);
-                PlayerSettings.SetScriptingDefineSymbolsForGroup(group, newDefines);
-                UnityEngine.Debug.Log($"[DependencyChecker] '{DefineSymbol}' define added to {group}");
-            }
-            _isDefineAdded = true;
-            EditorApplication.delayCall -= CheckAndAddDefine;
-        }
-        private static void CheckDependency()
-        {
-            if (_isDependenciesChecked) return;
-            var unitaskInstalled = File.Exists(UniTaskUpmPath);
-            if (unitaskInstalled) return;
-            if (EditorUtility.DisplayDialog(
-                "UniTask Not Found",
-                "This package depends on Cysharp's UniTask.\nWould you like to install it automatically?",
-                "Yes", "No"))
+            foreach (var group in groups)
             {
-                AddPackage("https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask");
+                var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(group).Split(';').ToList();
+                if (!defines.Contains(DefineSymbol))
+                {
+                    defines.Add(DefineSymbol);
+                    PlayerSettings.SetScriptingDefineSymbolsForGroup(group, string.Join(";", defines));
+                    Debug.Log($"[DependencyChecker] Define added: {DefineSymbol} for {group}");
+                }
             }
-            _isDependenciesChecked = true;
-            EditorApplication.delayCall -= CheckAndAddDefine;
         }
-        private static void CheckAsmdef()
+
+        private static void UpdateAsmdef()
         {
-            if (_isAsmdefChecked) return;
             if (!File.Exists(AssetManagerAsmdefPath))
             {
-                Debug.LogWarning($"AssetManager.asmdef not found at: {AssetManagerAsmdefPath}");
+                Debug.LogWarning($"[DependencyChecker] asmdef file not found at {AssetManagerAsmdefPath}");
                 return;
             }
-            var asmdefJson = File.ReadAllText(AssetManagerAsmdefPath);
-            var asmdef = JsonUtility.FromJson<AsmdefData>(asmdefJson);
-            var changed = false;
-            foreach (var dep in Dependencies)
+
+            var asmdefText = File.ReadAllText(AssetManagerAsmdefPath);
+            var asmdef = JsonUtility.FromJson<AsmdefData>(asmdefText);
+
+            var refs = asmdef.references.ToList();
+            bool changed = false;
+
+            void TryAdd(string asmName)
             {
-                if (Directory.Exists(dep.DirectoryPath))
+                if (!refs.Contains(asmName))
                 {
-                    if (asmdef.references.Contains(dep.AssemblyName)) continue;
-                    var refs = asmdef.references.ToList();
-                    refs.Add(dep.AssemblyName);
-                    asmdef.references = refs.ToArray();
+                    refs.Add(asmName);
                     changed = true;
-                    Debug.Log($"[DependencyChecker] Added reference: {dep.AssemblyName}");
-                }
-                else
-                {
-                    Debug.Log($"[DependencyChecker] Package not found for: {dep.AssemblyName}, skipping.");
+                    Debug.Log($"[DependencyChecker] Added asmdef reference: {asmName}");
                 }
             }
-            if(!changed) return;
-            File.WriteAllText(AssetManagerAsmdefPath, JsonUtility.ToJson(asmdef, true));
-            AssetDatabase.Refresh();
-            EditorApplication.delayCall -= CheckAsmdef;
-            Debug.Log("[DependencyChecker] AssetManager.asmdef updated.");
-            _isAsmdefChecked = true;
-        }
-        private static void AddPackage(string url)
-        {
-            UnityEditor.PackageManager.Client.Add(url);
-        }
-    }
-    [Serializable]
-    internal class AsmdefData
-    {
-        public string name;
-        public string[] references = Array.Empty<string>();
-    }
-    internal class Dependency
-    {
-        public readonly string AssemblyName;
-        public readonly string DirectoryPath;
 
-        public Dependency(string name, string path)
+            TryAdd("UniTask");
+            TryAdd("Unity.Addressables");
+            TryAdd("UniTask.Addressables");
+            TryAdd("Unity.ResourceManager");
+
+            if (changed)
+            {
+                asmdef.references = refs.ToArray();
+                File.WriteAllText(AssetManagerAsmdefPath, JsonUtility.ToJson(asmdef, true));
+                AssetDatabase.Refresh();
+                Debug.Log("[DependencyChecker] asmdef updated.");
+            }
+        }
+
+        [Serializable]
+        private class AsmdefData
         {
-            AssemblyName = name;
-            DirectoryPath = path;
+            public string name;
+            public string[] references = Array.Empty<string>();
         }
     }
 }
-
 #endif

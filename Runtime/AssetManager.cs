@@ -12,7 +12,7 @@
 //
 // "Simplicity is the soul of efficiency." – Austin Freeman
 // </summary>
-#if UNITASK_INSTALLED
+#if ASSETMANAGER_INITIALIZED
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
