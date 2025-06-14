@@ -16,14 +16,14 @@ namespace AssetManager.Editor
         private const string UniTaskPath = "Packages/com.cysharp.unitask";
         private const string AddressablesPath = "Packages/com.unity.addressables";
         private const string AssetManagerAsmdefPath = "Packages/com.batuhankanbur.assetmanager/Runtime/AssetManager.asmdef";
-
+        private const string EditorPrefKey = "AssetManager.DependencyCheckCompleted";
         private const string DefineSymbol = "ASSETMANAGER_INITIALIZED";
 
         private static AddRequest _currentRequest;
 
         static DependencyChecker()
         {
-            if (HasDefineSymbol(DefineSymbol)) return;
+            if (EditorPrefs.GetBool(EditorPrefKey, false)) return;
             EditorApplication.update += Run;
         }
 
@@ -98,6 +98,7 @@ namespace AssetManager.Editor
         {
             AddDefine();
             UpdateAsmdef();
+            EditorPrefs.SetBool(EditorPrefKey, true);
             Debug.Log("[DependencyChecker] Setup completed.");
         }
 
@@ -117,8 +118,6 @@ namespace AssetManager.Editor
 
             foreach (var group in groups)
             {
-                if (!IsValidBuildTargetGroup(group)) continue;
-
                 var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(group).Split(';').ToList();
                 if (!defines.Contains(DefineSymbol))
                 {
@@ -164,34 +163,6 @@ namespace AssetManager.Editor
                 File.WriteAllText(AssetManagerAsmdefPath, JsonUtility.ToJson(asmdef, true));
                 AssetDatabase.Refresh();
                 Debug.Log("[DependencyChecker] asmdef updated.");
-            }
-        }
-
-        private static bool HasDefineSymbol(string symbol)
-        {
-            var groups = Enum.GetValues(typeof(BuildTargetGroup)).Cast<BuildTargetGroup>();
-
-            foreach (var group in groups)
-            {
-                if (!IsValidBuildTargetGroup(group)) continue;
-
-                var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(group);
-                if (defines.Contains(symbol)) return true;
-            }
-
-            return false;
-        }
-
-        private static bool IsValidBuildTargetGroup(BuildTargetGroup group)
-        {
-            switch (group)
-            {
-                case BuildTargetGroup.Unknown:
-                case (BuildTargetGroup)22:
-                case (BuildTargetGroup)23:
-                    return false;
-                default:
-                    return true;
             }
         }
 
