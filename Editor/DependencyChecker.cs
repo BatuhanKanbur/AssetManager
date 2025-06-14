@@ -9,24 +9,8 @@ using UnityEngine;
 
 namespace AssetManager.Editor
 {
-    public static partial class DependencyChecker
-    {
-        [MenuItem("Assets/Install AssetManager Dependencies")]
-        public static void ManualCheck()
-        {
-            if (EditorApplication.isPlayingOrWillChangePlaymode)
-            {
-                Debug.LogWarning("[DependencyChecker] Cannot run dependency check during play mode.");
-                return;
-            }
-            
-            EditorPrefs.SetBool(EditorPrefKey, false);
-            Debug.Log("[DependencyChecker] Manual dependency check started.");
-            EditorApplication.update += Run;
-        }
-    }
     [InitializeOnLoad]
-    public static partial class DependencyChecker
+    public static class DependencyChecker
     {
         private const string UniTaskGitUrl = "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask";
         private const string UniTaskPath = "Packages/com.cysharp.unitask";
