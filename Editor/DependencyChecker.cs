@@ -16,14 +16,12 @@ namespace AssetManager.Editor
         private const string UniTaskPath = "Packages/com.cysharp.unitask";
         private const string AddressablesPath = "Packages/com.unity.addressables";
         private const string AssetManagerAsmdefPath = "Packages/com.batuhankanbur.assetmanager/Runtime/AssetManager.asmdef";
-        private const string EditorPrefKey = "AssetManager.DependencyCheckCompleted";
         private const string DefineSymbol = "ASSETMANAGER_INITIALIZED";
 
         private static AddRequest _currentRequest;
 
         static DependencyChecker()
         {
-            if (EditorPrefs.GetBool(EditorPrefKey, false)) return;
             EditorApplication.update += Run;
         }
 
@@ -35,17 +33,31 @@ namespace AssetManager.Editor
 
         private static void CheckAndInstallDependencies()
         {
-            if (!Directory.Exists(UniTaskPath))
+            var allGood =
+                IsPackageInstalled(UniTaskPath) &&
+                IsPackageInstalled(AddressablesPath) &&
+                AsmdefHasReferences("UniTask", "Unity.Addressables", "UniTask.Addressables", "Unity.ResourceManager") &&
+                HasDefineSymbol(DefineSymbol);
+
+            if (allGood)
             {
-                Debug.Log("[DependencyChecker] UniTask not found. Installing...");
+                Debug.Log("[DependencyChecker] All dependencies verified.");
+                return;
+            }
+
+            Debug.Log("[DependencyChecker] Dependencies missing or incomplete. Fixing...");
+
+            if (!IsPackageInstalled(UniTaskPath))
+            {
+                Debug.Log("[DependencyChecker] Installing UniTask...");
                 _currentRequest = Client.Add(UniTaskGitUrl);
                 EditorApplication.update += WaitForUniTask;
                 return;
             }
 
-            if (!Directory.Exists(AddressablesPath))
+            if (!IsPackageInstalled(AddressablesPath))
             {
-                Debug.Log("[DependencyChecker] Addressables not found. Installing...");
+                Debug.Log("[DependencyChecker] Installing Addressables...");
                 _currentRequest = Client.Add("com.unity.addressables");
                 EditorApplication.update += WaitForAddressables;
                 return;
@@ -62,7 +74,7 @@ namespace AssetManager.Editor
             if (_currentRequest.Status == StatusCode.Success)
             {
                 Debug.Log("[DependencyChecker] UniTask installed.");
-                if (!Directory.Exists(AddressablesPath))
+                if (!IsPackageInstalled(AddressablesPath))
                 {
                     _currentRequest = Client.Add("com.unity.addressables");
                     EditorApplication.update += WaitForAddressables;
@@ -98,7 +110,6 @@ namespace AssetManager.Editor
         {
             AddDefine();
             UpdateAsmdef();
-            EditorPrefs.SetBool(EditorPrefKey, true);
             Debug.Log("[DependencyChecker] Setup completed.");
         }
 
@@ -138,7 +149,6 @@ namespace AssetManager.Editor
 
             var asmdefText = File.ReadAllText(AssetManagerAsmdefPath);
             var asmdef = JsonUtility.FromJson<AsmdefData>(asmdefText);
-
             var refs = asmdef.references.ToList();
             bool changed = false;
 
@@ -164,6 +174,35 @@ namespace AssetManager.Editor
                 AssetDatabase.Refresh();
                 Debug.Log("[DependencyChecker] asmdef updated.");
             }
+        }
+
+        private static bool IsPackageInstalled(string path) => Directory.Exists(path);
+
+        private static bool AsmdefHasReferences(params string[] requiredRefs)
+        {
+            if (!File.Exists(AssetManagerAsmdefPath)) return false;
+
+            var asmdefText = File.ReadAllText(AssetManagerAsmdefPath);
+            var asmdef = JsonUtility.FromJson<AsmdefData>(asmdefText);
+            var refs = asmdef.references ?? Array.Empty<string>();
+
+            return requiredRefs.All(r => refs.Contains(r));
+        }
+
+        private static bool HasDefineSymbol(string symbol)
+        {
+            BuildTargetGroup[] groups =
+            {
+                BuildTargetGroup.Standalone,
+                BuildTargetGroup.Android,
+                BuildTargetGroup.iOS,
+                BuildTargetGroup.WebGL,
+                BuildTargetGroup.WSA,
+                BuildTargetGroup.PS4,
+                BuildTargetGroup.PS5,
+                BuildTargetGroup.XboxOne
+            };
+            return groups.All(group => PlayerSettings.GetScriptingDefineSymbolsForGroup(group).Split(';').Contains(symbol));
         }
 
         [Serializable]
