@@ -2,16 +2,15 @@
 
 **A powerful yet lightweight asset management system for Unity**  
 by [Batuhan Kanbur](https://batuhankanbur.com)  
-📦 [GitHub Repository](https://github.com/BatuhanKanbur/AssetManager)
 
 > _"Simplicity is the soul of efficiency."_ – Austin Freeman
 
 ---
 
 ## 🚀 Usage Example
-
+```csharp
 Sprite gameIcon = await AssetManager<Sprite>.LoadAsync(iconAssetReference);
-
+```
 ---
 
 ## ✨ Overview
@@ -62,3 +61,4 @@ If not already installed, you’ll be prompted in the Unity Editor to add it via
 
 ```csharp
 UnityEditor.PackageManager.Client.Add("https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask");
+
