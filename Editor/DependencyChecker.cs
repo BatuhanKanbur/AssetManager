@@ -17,8 +17,18 @@ namespace AssetManager.Editor
         private const string AddressablesPath = "Packages/com.unity.addressables";
         private const string AssetManagerAsmdefPath = "Packages/com.batuhankanbur.assetmanager/Runtime/AssetManager.asmdef";
         private const string DefineSymbol = "ASSETMANAGER_INITIALIZED";
-
         private static AddRequest _currentRequest;
+        private static readonly BuildTargetGroup[] Groups =
+        {
+            BuildTargetGroup.Standalone,
+            BuildTargetGroup.Android,
+            BuildTargetGroup.iOS,
+            BuildTargetGroup.WebGL,
+            BuildTargetGroup.WSA,
+            BuildTargetGroup.PS4,
+            BuildTargetGroup.PS5,
+            BuildTargetGroup.XboxOne
+        };
 
         static DependencyChecker()
         {
@@ -44,7 +54,7 @@ namespace AssetManager.Editor
                 Debug.Log("[DependencyChecker] All dependencies verified.");
                 return;
             }
-
+            RemoveDefine();
             Debug.Log("[DependencyChecker] Dependencies missing or incomplete. Fixing...");
 
             if (!IsPackageInstalled(UniTaskPath))
@@ -115,19 +125,7 @@ namespace AssetManager.Editor
 
         private static void AddDefine()
         {
-            BuildTargetGroup[] groups =
-            {
-                BuildTargetGroup.Standalone,
-                BuildTargetGroup.Android,
-                BuildTargetGroup.iOS,
-                BuildTargetGroup.WebGL,
-                BuildTargetGroup.WSA,
-                BuildTargetGroup.PS4,
-                BuildTargetGroup.PS5,
-                BuildTargetGroup.XboxOne
-            };
-
-            foreach (var group in groups)
+            foreach (var group in Groups)
             {
                 var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(group).Split(';').ToList();
                 if (!defines.Contains(DefineSymbol))
@@ -136,6 +134,16 @@ namespace AssetManager.Editor
                     PlayerSettings.SetScriptingDefineSymbolsForGroup(group, string.Join(";", defines));
                     Debug.Log($"[DependencyChecker] Define added: {DefineSymbol} for {group}");
                 }
+            }
+        }
+        private static void RemoveDefine()
+        {
+            foreach (var group in Groups)
+            {
+                var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(group).Split(';').ToList();
+                if (!defines.Contains(DefineSymbol) || !defines.Remove(DefineSymbol)) continue;
+                PlayerSettings.SetScriptingDefineSymbolsForGroup(group, string.Join(";", defines));
+                Debug.Log($"[DependencyChecker] Define removed: {DefineSymbol} for {group}");
             }
         }
 
@@ -191,18 +199,7 @@ namespace AssetManager.Editor
 
         private static bool HasDefineSymbol(string symbol)
         {
-            BuildTargetGroup[] groups =
-            {
-                BuildTargetGroup.Standalone,
-                BuildTargetGroup.Android,
-                BuildTargetGroup.iOS,
-                BuildTargetGroup.WebGL,
-                BuildTargetGroup.WSA,
-                BuildTargetGroup.PS4,
-                BuildTargetGroup.PS5,
-                BuildTargetGroup.XboxOne
-            };
-            return groups.All(group => PlayerSettings.GetScriptingDefineSymbolsForGroup(group).Split(';').Contains(symbol));
+            return Groups.All(group => PlayerSettings.GetScriptingDefineSymbolsForGroup(group).Split(';').Contains(symbol));
         }
 
         [Serializable]
