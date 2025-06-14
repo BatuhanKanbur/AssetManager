@@ -98,6 +98,13 @@ namespace AssetManager.Runtime
             }
         }
     }
+    public static class AssetManagerExtensions
+    {
+        public static bool IsAssigned(this AssetReference assetReference)
+        {
+            return assetReference != null && !string.IsNullOrEmpty(assetReference.AssetGUID);
+        }
+    }
 }
 #endif
 
