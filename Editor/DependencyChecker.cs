@@ -17,6 +17,7 @@ namespace AssetManager.Editor
         private const string AddressablesPath = "Packages/com.unity.addressables";
         private const string AssetManagerAsmdefPath = "Packages/com.batuhankanbur.assetmanager/Runtime/AssetManager.asmdef";
         private const string DefineSymbol = "ASSETMANAGER_INITIALIZED";
+        private const string ASSETMANAGER_STATE_KEY="ASSETMANAGER_VERIFIED";
         private static AddRequest _currentRequest;
         private static readonly BuildTargetGroup[] Groups =
         {
@@ -43,6 +44,7 @@ namespace AssetManager.Editor
 
         private static void CheckAndInstallDependencies()
         {
+            if (SessionState.GetBool(ASSETMANAGER_STATE_KEY,false)) return;
             var allGood =
                 IsPackageInstalled(UniTaskPath) &&
                 IsPackageInstalled(AddressablesPath) &&
@@ -51,15 +53,16 @@ namespace AssetManager.Editor
 
             if (allGood)
             {
-                Debug.Log("[DependencyChecker] All dependencies verified.");
+                SessionState.SetBool(ASSETMANAGER_STATE_KEY,true);
+                Debug.Log("[AssetManager] All dependencies verified.");
                 return;
             }
             RemoveDefine();
-            Debug.Log("[DependencyChecker] Dependencies missing or incomplete. Fixing...");
+            Debug.Log("[AssetManager] Dependencies missing or incomplete. Fixing...");
 
             if (!IsPackageInstalled(UniTaskPath))
             {
-                Debug.Log("[DependencyChecker] Installing UniTask...");
+                Debug.Log("[AssetManager] Installing UniTask...");
                 _currentRequest = Client.Add(UniTaskGitUrl);
                 EditorApplication.update += WaitForUniTask;
                 return;
@@ -67,7 +70,7 @@ namespace AssetManager.Editor
 
             if (!IsPackageInstalled(AddressablesPath))
             {
-                Debug.Log("[DependencyChecker] Installing Addressables...");
+                Debug.Log("[AssetManager] Installing Addressables...");
                 _currentRequest = Client.Add("com.unity.addressables");
                 EditorApplication.update += WaitForAddressables;
                 return;
@@ -83,7 +86,7 @@ namespace AssetManager.Editor
 
             if (_currentRequest.Status == StatusCode.Success)
             {
-                Debug.Log("[DependencyChecker] UniTask installed.");
+                Debug.Log("[AssetManager] UniTask installed.");
                 if (!IsPackageInstalled(AddressablesPath))
                 {
                     _currentRequest = Client.Add("com.unity.addressables");
@@ -96,7 +99,7 @@ namespace AssetManager.Editor
             }
             else
             {
-                Debug.LogError($"[DependencyChecker] Failed to install UniTask: {_currentRequest.Error.message}");
+                Debug.LogError($"[AssetManager] Failed to install UniTask: {_currentRequest.Error.message}");
             }
         }
 
@@ -107,12 +110,12 @@ namespace AssetManager.Editor
 
             if (_currentRequest.Status == StatusCode.Success)
             {
-                Debug.Log("[DependencyChecker] Addressables installed.");
+                Debug.Log("[AssetManager] Addressables installed.");
                 AfterInstall();
             }
             else
             {
-                Debug.LogError($"[DependencyChecker] Failed to install Addressables: {_currentRequest.Error.message}");
+                Debug.LogError($"[AssetManager] Failed to install Addressables: {_currentRequest.Error.message}");
             }
         }
 
@@ -120,7 +123,7 @@ namespace AssetManager.Editor
         {
             AddDefine();
             UpdateAsmdef();
-            Debug.Log("[DependencyChecker] Setup completed.");
+            Debug.Log("[AssetManager] Setup completed.");
         }
 
         private static void AddDefine()
@@ -132,7 +135,7 @@ namespace AssetManager.Editor
                 {
                     defines.Add(DefineSymbol);
                     PlayerSettings.SetScriptingDefineSymbolsForGroup(group, string.Join(";", defines));
-                    Debug.Log($"[DependencyChecker] Define added: {DefineSymbol} for {group}");
+                    Debug.Log($"[AssetManager] Define added: {DefineSymbol} for {group}");
                 }
             }
         }
@@ -143,7 +146,7 @@ namespace AssetManager.Editor
                 var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(group).Split(';').ToList();
                 if (!defines.Contains(DefineSymbol) || !defines.Remove(DefineSymbol)) continue;
                 PlayerSettings.SetScriptingDefineSymbolsForGroup(group, string.Join(";", defines));
-                Debug.Log($"[DependencyChecker] Define removed: {DefineSymbol} for {group}");
+                Debug.Log($"[AssetManager] Define removed: {DefineSymbol} for {group}");
             }
         }
 
@@ -151,7 +154,7 @@ namespace AssetManager.Editor
         {
             if (!File.Exists(AssetManagerAsmdefPath))
             {
-                Debug.LogWarning($"[DependencyChecker] asmdef file not found at {AssetManagerAsmdefPath}");
+                Debug.LogWarning($"[AssetManager] asmdef file not found at {AssetManagerAsmdefPath}");
                 return;
             }
 
@@ -166,7 +169,7 @@ namespace AssetManager.Editor
                 {
                     refs.Add(asmName);
                     changed = true;
-                    Debug.Log($"[DependencyChecker] Added asmdef reference: {asmName}");
+                    Debug.Log($"[AssetManager] Added asmdef reference: {asmName}");
                 }
             }
 
@@ -180,7 +183,7 @@ namespace AssetManager.Editor
                 asmdef.references = refs.ToArray();
                 File.WriteAllText(AssetManagerAsmdefPath, JsonUtility.ToJson(asmdef, true));
                 AssetDatabase.Refresh();
-                Debug.Log("[DependencyChecker] asmdef updated.");
+                Debug.Log("[AssetManager] asmdef updated.");
             }
         }
 
